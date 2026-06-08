@@ -685,6 +685,7 @@
     <div class="sidenote fade">
       <span class="sk">Where the original corpus came from</span>
       <p>The seed set (<b>b1–b18, s1–s15, f1–f5</b>) came from 26 verbatim Viktor replies, triaged out of 33 candidates from Every's Slack history (commit <code>19a7674</code>, May 28 2026). At runtime, prompts are re-pointed <b>@Viktor → @Plus One</b> — the eval measures <em>doing the task</em>, not impersonating a person. The <code>-keep-viktor-mention</code> flag replays verbatim for debugging.</p>
+      <p>The living index of captured cases lives in the <a href="https://www.proofeditor.ai/d/nidzzyx1?token=3e8d8f16-9bfb-4a8c-9a99-5a50bc09edc0" target="_blank" rel="noopener" style="color:var(--amber);">Plus One Eval Corpus Proof doc ↗</a> (the on-disk YAML in <code>evals/cases/</code> is the source of truth; <code>go run ./cmd/eval -inventory</code> prints the live counts).</p>
       <p><b>Safety:</b> captured thread text is treated as untrusted source material — never as instructions the agent should obey.</p>
     </div>
   </div>
@@ -824,6 +825,7 @@
       <h2 style="font-size:34px;">Start reading here.</h2>
     </div>
     <div class="files fade">
+      <div class="file"><span class="fi" style="color:var(--amber)">★</span><div><a class="fp" href="https://www.proofeditor.ai/d/nidzzyx1?token=3e8d8f16-9bfb-4a8c-9a99-5a50bc09edc0" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:none;">Plus One Eval Corpus — Proof doc ↗</a><small>the living corpus summary: the captured Viktor cases + counts · opens in Proof</small></div></div>
       <div class="file"><span class="fi">▸</span><div><span class="fp">backend/cmd/eval/main.go</span><small>CLI entry · loads, dispatches, reports</small></div></div>
       <div class="file"><span class="fi">▸</span><div><span class="fp">backend/cmd/eval/trajectory.go</span><small>flagship runner + two-layer grading</small></div></div>
       <div class="file"><span class="fi">▸</span><div><span class="fp">evals/README.md</span><small>case format + how to author</small></div></div>
