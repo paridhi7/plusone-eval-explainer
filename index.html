@@ -441,7 +441,7 @@
       <div class="step fade"><div class="k">5</div><h4>Report</h4><p>PASS / FAIL to stdout + a JSON run record.</p></div>
     </div>
     <div class="compound fade" style="margin-top:24px;">
-      <b style="color:var(--amber)">Outputs &amp; flags ·</b>&nbsp; Per-case PASS/FAIL to stdout, plus a JSON record in <span class="mono">evals/runs/&lt;timestamp&gt;.json</span>. Use <code class="mono" style="color:var(--amber)">-compare-to</code> to diff two runs and catch regressions · <code class="mono" style="color:var(--amber)">-case &lt;glob&gt;</code> · <code class="mono" style="color:var(--amber)">-dir</code> · <code class="mono" style="color:var(--amber)">-out</code> · <code class="mono" style="color:var(--amber)">-real-connections</code> · <code class="mono" style="color:var(--amber)">-keep-viktor-mention</code>.
+      <b style="color:var(--amber)">Outputs &amp; flags ·</b>&nbsp; Per-case PASS/FAIL to stdout, plus a JSON record in <span class="mono">evals/runs/&lt;timestamp&gt;.json</span>. Use <code class="mono" style="color:var(--amber)">-compare-to</code> to diff two runs and catch regressions · <code class="mono" style="color:var(--amber)">-case &lt;glob&gt;</code> · <code class="mono" style="color:var(--amber)">-dir</code> · <code class="mono" style="color:var(--amber)">-out</code> · <code class="mono" style="color:var(--amber)">-real-connections</code> · <code class="mono" style="color:var(--amber)">-allow-writes</code> · <code class="mono" style="color:var(--amber)">-keep-viktor-mention</code>.
     </div>
   </div>
 </section>
@@ -531,11 +531,48 @@
   </div>
 </section>
 
+<!-- ================= CONNECTIONS & PROD SAFETY ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">04 — connections &amp; prod</span>
+      <h2>Connection evals hit real production.</h2>
+      <p>A blank Plus One has no connections — so any case that needs a real tool (PostHog numbers, a GitHub repo, a Kit tag) runs the <b style="color:var(--paper)">dev agent against live provider data</b>. That power needs a guardrail.</p>
+    </div>
+    <div class="cards">
+      <div class="card c-cb fade">
+        <div class="bartop"></div>
+        <div class="tagrow"><span class="ct">real prod</span></div>
+        <h3>Your identity, live data</h3>
+        <p>Connection cases resolve <code>PLUS_ONE_EVAL_SLACK_*</code> to <b style="color:var(--paper)">your own OAuth tokens</b>. PostHog / GitHub / Notion / Kit calls execute for real, under your identity — there is no sandbox provider.</p>
+        <div class="judge">◆ dev agent + real connections</div>
+      </div>
+      <div class="card c-ct fade">
+        <div class="bartop"></div>
+        <div class="tagrow"><span class="ct">fail-safe</span></div>
+        <h3>Read + create only, by default</h3>
+        <p>Every provider call against a real connection is restricted to <b style="color:var(--paper)">reads and creates</b>. Updates, deletes, sends/posts, and unrecognized verbs are blocked with a synthetic result — the agent keeps going, nothing real is mutated. No flag needed; it's the default.</p>
+        <div class="judge">◇ default-deny unknown verbs</div>
+      </div>
+      <div class="card c-beh fade">
+        <div class="bartop"></div>
+        <div class="tagrow"><span class="ct">-allow-writes</span></div>
+        <h3>Opt in to writes, deliberately</h3>
+        <p>Only <code>-allow-writes</code> unlocks update / delete / send — for write smokes you're watching. Note: <em>creates still run in safe mode</em> (a real tag or event is created), so "safe" means nothing is <em>updated, deleted, or sent</em> — not "nothing is written".</p>
+        <div class="judge">◇ explicit, watched runs only</div>
+      </div>
+    </div>
+    <div class="compound" style="margin-top:18px;">
+      <b>How the guard decides:</b> the provider tool name is tokenized — a <span class="mono" style="color:var(--rose)">block verb</span> (update · delete · send · post · …) always wins, a <span class="mono" style="color:var(--teal)">read/create verb</span> (get · list · query · create · draft · …) is allowed, and anything unrecognized is <b style="color:var(--paper)">refused</b>, so an unknown write can't slip through against prod. This used to be an opt-in <code>-safe-eval</code> flag; making it the default removed the "forgot the flag → mutated prod" footgun.
+    </div>
+  </div>
+</section>
+
 <!-- ================= DESIGN DECISIONS ================= -->
 <section>
   <div class="wrap">
     <div class="sec-head fade">
-      <span class="num">04 — clever by design</span>
+      <span class="num">05 — clever by design</span>
       <h2>Decisions worth stealing.</h2>
       <p>Small choices that make the eval corpus fair, safe, and reviewable.</p>
     </div>
@@ -568,7 +605,7 @@
 <section>
   <div class="wrap">
     <div class="sec-head fade">
-      <span class="num">05 — capture pipeline</span>
+      <span class="num">06 — capture pipeline</span>
       <h2>From Slack thread to eval case.</h2>
       <p>The corpus grows from real work. Inside allowlisted workspaces, Plus One can turn a good thread into a trajectory case and open the PR itself — following a recipe checked into the repo, never improvising.</p>
     </div>
@@ -657,7 +694,7 @@
 <section>
   <div class="wrap">
     <div class="sec-head fade">
-      <span class="num">06 — when an eval fails</span>
+      <span class="num">07 — when an eval fails</span>
       <h2>The fail → fix loop, as practiced.</h2>
       <p>A red case is a diagnosis, not a verdict. Read the judge's full reasoning, decide <em>where</em> the failure belongs, fix it there, then re-run with <code class="mono" style="color:var(--amber)">-compare-to</code> to prove the delta.</p>
     </div>
@@ -749,7 +786,7 @@
 <section>
   <div class="wrap">
     <div class="sec-head fade">
-      <span class="num">07 — a case, in full</span>
+      <span class="num">08 — a case, in full</span>
       <h2>What a trajectory case looks like.</h2>
       <p>Human-readable, version-controlled, reviewable in a PR. This one seeds two threads, then asks for a summary.</p>
     </div>
