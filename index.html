@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Plus One — Eval System, Explained</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,900&family=Space+Mono:wght@400;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#13110d;
+    --ink-2:#1d1a14;
+    --paper:#f4ece0;
+    --paper-soft:#e9ddc9;
+    --line:#3a352a;
+    --line-soft:rgba(244,236,224,.14);
+    --amber:#e8a13a;
+    --amber-deep:#c9772a;
+    --teal:#5fb6a8;
+    --rose:#e0707f;
+    --violet:#9d8fd6;
+    --lime:#b8c558;
+    --sky:#7aa9d8;
+    --muted:rgba(244,236,224,.55);
+    --muted-2:rgba(244,236,224,.38);
+    --grid:rgba(244,236,224,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Newsreader',Georgia,serif;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:34px 34px;
+  }
+  body::before{
+    content:"";
+    position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(circle at 50% -10%, rgba(232,161,58,.10), transparent 55%);
+  }
+  /* grain overlay */
+  body::after{
+    content:"";
+    position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.045;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px;position:relative;z-index:3;}
+
+  /* ---------- type ---------- */
+  h1,h2,h3{font-family:'Fraunces',serif;line-height:1.02;letter-spacing:-.01em;}
+  .mono{font-family:'Space Mono',monospace;}
+  .eyebrow{
+    font-family:'Space Mono',monospace;
+    font-size:12px;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--amber);display:inline-flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--amber);display:inline-block;}
+
+  /* ---------- hero ---------- */
+  header.hero{padding:72px 0 56px;position:relative;}
+  .stamp{
+    position:absolute;top:54px;right:28px;
+    width:118px;height:118px;border-radius:50%;
+    border:1.5px solid var(--amber);color:var(--amber);
+    display:grid;place-items:center;text-align:center;
+    font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.18em;
+    line-height:1.5;text-transform:uppercase;transform:rotate(-9deg);
+    opacity:.85;
+  }
+  .stamp span{font-family:'Fraunces';font-size:26px;display:block;letter-spacing:0;margin-bottom:2px;}
+  .hero h1{
+    font-size:clamp(48px,9vw,108px);font-weight:900;margin:20px 0 8px;
+    letter-spacing:-.03em;
+  }
+  .hero h1 em{font-style:italic;font-weight:300;color:var(--amber);}
+  .hero .sub{
+    font-size:clamp(19px,2.4vw,26px);max-width:680px;color:var(--paper);
+    font-weight:400;margin-top:14px;
+  }
+  .hero .sub b{color:var(--amber);font-weight:500;}
+  .runline{
+    margin-top:34px;display:inline-flex;align-items:center;gap:0;
+    border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    font-family:'Space Mono',monospace;font-size:14px;
+    background:var(--ink-2);box-shadow:0 18px 40px -22px rgba(0,0,0,.9);
+  }
+  .runline .dollar{background:var(--amber);color:var(--ink);padding:13px 16px;font-weight:700;}
+  .runline code{padding:13px 18px;color:var(--paper);}
+  .runline .blink{width:9px;height:17px;background:var(--amber);display:inline-block;margin-left:2px;animation:blink 1.1s steps(1) infinite;vertical-align:-3px;}
+  @keyframes blink{50%{opacity:0}}
+
+  /* fade-up entrance */
+  .fade{opacity:0;transform:translateY(22px);transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1);}
+  .fade.in{opacity:1;transform:none;}
+
+  section{padding:58px 0;border-top:1px solid var(--line-soft);}
+  .sec-head{margin-bottom:34px;max-width:760px;}
+  .sec-head h2{font-size:clamp(30px,4.4vw,46px);font-weight:600;margin:14px 0 10px;}
+  .sec-head p{color:var(--muted);font-size:18px;}
+  .num{font-family:'Space Mono',monospace;color:var(--muted-2);font-size:13px;}
+
+  /* ---------- product strip ---------- */
+  .pipe-product{
+    display:flex;flex-wrap:wrap;align-items:stretch;gap:0;
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:linear-gradient(180deg,var(--ink-2),rgba(29,26,20,.4));
+  }
+  .pp{flex:1 1 0;min-width:130px;padding:22px 20px;border-right:1px solid var(--line-soft);position:relative;}
+  .pp:last-child{border-right:none;}
+  .pp .ic{font-size:24px;}
+  .pp h4{font-family:'Fraunces';font-weight:600;font-size:18px;margin:8px 0 4px;}
+  .pp small{color:var(--muted);font-size:13.5px;line-height:1.45;display:block;}
+  .pp .arrow{position:absolute;right:-9px;top:50%;transform:translateY(-50%);z-index:4;
+    color:var(--amber);font-size:18px;background:var(--ink);padding:0 1px;}
+  .pp:last-child .arrow{display:none;}
+  .compound{
+    margin-top:18px;padding:16px 22px;border:1px dashed var(--line);border-radius:12px;
+    color:var(--muted);font-size:15.5px;
+  }
+  .compound b{color:var(--teal);font-weight:500;font-family:'Fraunces';}
+
+  /* ---------- pipeline flow ---------- */
+  .flow{display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;}
+  .step{
+    flex:1 1 175px;position:relative;
+    border:1px solid var(--line);border-radius:14px;padding:22px 18px 20px;
+    background:var(--ink-2);transition:transform .25s, border-color .25s, box-shadow .25s;
+    overflow:hidden;
+  }
+  .step:hover{transform:translateY(-5px);border-color:var(--amber);box-shadow:0 22px 44px -26px rgba(232,161,58,.5);}
+  .step .k{
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--ink);
+    background:var(--amber);width:26px;height:26px;border-radius:7px;
+    display:grid;place-items:center;font-weight:700;margin-bottom:14px;
+  }
+  .step h4{font-family:'Fraunces';font-size:19px;font-weight:600;margin-bottom:6px;}
+  .step p{font-size:14.5px;color:var(--muted);line-height:1.5;}
+  .step::after{content:"→";position:absolute;right:-7px;top:50%;transform:translateY(-50%);
+    color:var(--amber);font-size:20px;z-index:5;}
+  .step:last-child::after{display:none;}
+
+  /* ---------- case cards ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
+  .card{
+    border:1px solid var(--line);border-radius:16px;padding:26px 24px;
+    background:linear-gradient(165deg,var(--ink-2),rgba(19,17,13,.6));
+    position:relative;overflow:hidden;transition:transform .3s, box-shadow .3s;
+  }
+  .card:hover{transform:translateY(-4px);box-shadow:0 26px 50px -30px rgba(0,0,0,.9);}
+  .card .tagrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .card .ct{font-family:'Space Mono',monospace;font-size:11.5px;letter-spacing:.08em;
+    padding:5px 11px;border-radius:30px;font-weight:700;text-transform:uppercase;}
+  .card .flag{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink);
+    background:var(--amber);padding:4px 9px;border-radius:30px;font-weight:700;letter-spacing:.1em;}
+  .card h3{font-size:23px;font-weight:600;margin-bottom:8px;}
+  .card p{font-size:15px;color:var(--muted);line-height:1.55;}
+  .card .judge{margin-top:16px;padding-top:14px;border-top:1px solid var(--line-soft);
+    font-family:'Space Mono',monospace;font-size:11.5px;color:var(--muted-2);
+    display:flex;align-items:center;gap:8px;}
+  .card .judge b{color:var(--paper);font-weight:700;}
+  .card .bartop{position:absolute;top:0;left:0;right:0;height:4px;}
+  /* color variants */
+  .c-traj{--c:var(--amber);} .c-beh{--c:var(--teal);} .c-cb{--c:var(--violet);}
+  .c-ct{--c:var(--sky);} .c-lat{--c:var(--rose);}
+  .card .bartop{background:var(--c);}
+  .card .ct{background:color-mix(in srgb,var(--c) 18%, transparent);color:var(--c);
+    border:1px solid color-mix(in srgb,var(--c) 40%, transparent);}
+
+  /* ---------- gate diagram ---------- */
+  .gate{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:780px){.gate{grid-template-columns:1fr;}}
+  .layer{border:1px solid var(--line);border-radius:16px;padding:26px;background:var(--ink-2);position:relative;}
+  .layer .lbl{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;
+    color:var(--amber);text-transform:uppercase;}
+  .layer h3{font-size:24px;font-weight:600;margin:8px 0 12px;}
+  .layer p{font-size:15px;color:var(--muted);}
+  .layer .pill-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px;}
+  .pp-pill{font-family:'Space Mono',monospace;font-size:11px;padding:5px 9px;border-radius:7px;
+    border:1px solid var(--line);color:var(--muted);background:rgba(244,236,224,.03);}
+  .pp-pill.det{border-color:var(--teal);color:var(--teal);}
+  .pp-pill.judged{border-color:var(--violet);color:var(--violet);}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted);}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:0;}
+
+  .verdict{
+    margin-top:24px;display:flex;align-items:stretch;flex-wrap:wrap;gap:0;
+    border:1.5px solid var(--amber);border-radius:16px;overflow:hidden;
+    background:linear-gradient(100deg,rgba(232,161,58,.10),rgba(95,182,168,.06));
+  }
+  .vbox{flex:1 1 200px;padding:22px 24px;border-right:1px solid var(--line-soft);}
+  .vbox:last-child{border-right:none;}
+  .vbox .vk{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;}
+  .vbox h4{font-family:'Fraunces';font-size:22px;font-weight:600;margin-top:5px;}
+  .vbox.amp{background:rgba(232,161,58,.08);}
+  .vbox .op{font-family:'Fraunces';font-size:34px;color:var(--amber);font-style:italic;}
+  .vresult{flex:1 1 220px;padding:22px 24px;background:var(--amber);color:var(--ink);}
+  .vresult .vk{color:rgba(19,17,13,.6);}
+  .vresult h4{font-size:24px;}
+  .vresult .thr{font-family:'Space Mono',monospace;font-weight:700;}
+
+  /* ---------- determinism ---------- */
+  .det-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:center;
+    border:1px solid var(--line);border-radius:18px;overflow:hidden;}
+  @media(max-width:780px){.det-grid{grid-template-columns:1fr;}}
+  .det-side{padding:30px 28px;}
+  .det-before{background:linear-gradient(160deg,rgba(224,112,127,.10),transparent);}
+  .det-after{background:linear-gradient(160deg,rgba(95,182,168,.12),transparent);}
+  .det-arrow{display:grid;place-items:center;padding:0 8px;color:var(--amber);font-size:30px;}
+  @media(max-width:780px){.det-arrow{padding:14px;transform:rotate(90deg);}}
+  .det-side .tag{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;}
+  .det-before .tag{color:var(--rose);} .det-after .tag{color:var(--teal);}
+  .det-side h3{font-size:26px;font-weight:600;margin:8px 0 10px;}
+  .det-side p{font-size:15px;color:var(--muted);}
+  .temp{display:flex;align-items:baseline;gap:10px;margin:16px 0 6px;}
+  .temp .v{font-family:'Fraunces';font-size:46px;font-weight:900;}
+  .det-before .v{color:var(--rose);} .det-after .v{color:var(--teal);}
+  .temp .u{font-family:'Space Mono',monospace;font-size:13px;color:var(--muted);}
+  .det-side .runs{display:flex;gap:6px;margin-top:14px;}
+  .dot{width:14px;height:14px;border-radius:50%;}
+  .dot.p{background:var(--teal);} .dot.f{background:var(--rose);} .dot.q{background:var(--muted-2);}
+
+  /* ---------- design decisions grid ---------- */
+  .deco{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .dcard{border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--ink-2);
+    transition:border-color .25s,transform .25s;}
+  .dcard:hover{border-color:var(--amber);transform:translateY(-3px);}
+  .dcard .ic{font-size:22px;margin-bottom:10px;display:block;}
+  .dcard h4{font-family:'Fraunces';font-size:20px;font-weight:600;margin-bottom:7px;}
+  .dcard p{font-size:14.5px;color:var(--muted);line-height:1.55;}
+  .dcard code{font-family:'Space Mono',monospace;font-size:12.5px;color:var(--amber);
+    background:rgba(232,161,58,.08);padding:1px 5px;border-radius:4px;}
+
+  /* ---------- capture pipeline (vertical timeline) ---------- */
+  .tl{position:relative;margin-top:8px;}
+  .tl::before{content:"";position:absolute;left:21px;top:8px;bottom:30px;width:2px;
+    background:linear-gradient(180deg,var(--amber),rgba(232,161,58,.15));}
+  @media(max-width:680px){.tl::before{left:17px;}}
+  .tnode{position:relative;padding:0 0 26px 64px;}
+  .tnode:last-child{padding-bottom:0;}
+  @media(max-width:680px){.tnode{padding-left:52px;}}
+  .tnode .tk{position:absolute;left:0;top:0;width:44px;height:44px;border-radius:12px;
+    background:var(--ink-2);border:1px solid var(--line);display:grid;place-items:center;
+    font-family:'Space Mono',monospace;font-weight:700;font-size:16px;color:var(--amber);z-index:4;
+    transition:border-color .25s,box-shadow .25s;}
+  @media(max-width:680px){.tnode .tk{width:36px;height:36px;font-size:13px;}}
+  .tnode:hover .tk{border-color:var(--amber);box-shadow:0 0 0 5px rgba(232,161,58,.10);}
+  .tbody{border:1px solid var(--line);border-radius:14px;padding:18px 22px;background:var(--ink-2);
+    transition:border-color .25s,transform .25s;}
+  .tnode:hover .tbody{border-color:rgba(232,161,58,.5);transform:translateX(3px);}
+  .tbody h4{font-family:'Fraunces';font-size:20px;font-weight:600;margin-bottom:6px;display:flex;
+    align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .tbody h4 .tt{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink);background:var(--amber);padding:3px 9px;border-radius:30px;
+    font-weight:700;}
+  .tbody p{font-size:14.5px;color:var(--muted);line-height:1.55;}
+  .tbody p + p{margin-top:8px;}
+  .tbody code{font-family:'Space Mono',monospace;font-size:12.5px;color:var(--amber);
+    background:rgba(232,161,58,.08);padding:1px 5px;border-radius:4px;}
+  .tbody .b-teal{color:var(--teal);font-weight:500;} .tbody .b-violet{color:var(--violet);font-weight:500;}
+  .tbody .b-rose{color:var(--rose);font-weight:500;} .tbody .b-paper{color:var(--paper);font-weight:500;}
+
+  /* slack + pr vignettes */
+  .vig{margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid var(--line-soft);
+    font-size:13.5px;line-height:1.5;}
+  .vig.slack{background:rgba(244,236,224,.025);padding:13px 15px;display:flex;gap:11px;align-items:flex-start;}
+  .vig.slack .av{width:30px;height:30px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;
+    font-family:'Fraunces';font-weight:600;font-size:14px;}
+  .vig.slack .av.bot{background:var(--amber);color:var(--ink);}
+  .vig.slack .av.usr{background:var(--violet);color:var(--ink);}
+  .vig.slack .nm{font-weight:600;color:var(--paper);font-family:'Newsreader';}
+  .vig.slack .nm .badge{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;
+    color:var(--ink);background:var(--teal);padding:1px 5px;border-radius:4px;margin-left:6px;
+    text-transform:uppercase;vertical-align:1px;}
+  .vig.slack .msg{color:var(--paper);font-family:'Newsreader';}
+  .vig.slack .msg .lk{color:var(--sky);}
+  .vig.pr{background:#0d0c09;font-family:'Space Mono',monospace;font-size:12.5px;}
+  .vig.pr .prbar{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--line-soft);
+    color:var(--muted);}
+  .vig.pr .prbar .gh{width:9px;height:9px;border-radius:50%;background:var(--teal);}
+  .vig.pr .prbar .br{color:var(--amber);}
+  .vig.pr pre{margin:0;padding:13px 16px;color:var(--muted);line-height:1.7;overflow-x:auto;}
+  .vig.pr pre .add{color:var(--teal);} .vig.pr pre .meta{color:var(--sky);}
+
+  .sidenote{margin-top:26px;border:1px dashed var(--line);border-radius:14px;padding:20px 24px;
+    background:linear-gradient(150deg,rgba(157,143,214,.07),transparent);}
+  .sidenote .sk{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--violet);display:block;margin-bottom:8px;}
+  .sidenote p{font-size:14.5px;color:var(--muted);line-height:1.6;}
+  .sidenote p + p{margin-top:9px;}
+  .sidenote code{font-family:'Space Mono',monospace;font-size:12.5px;color:var(--violet);
+    background:rgba(157,143,214,.10);padding:1px 5px;border-radius:4px;}
+  .sidenote b{color:var(--paper);font-weight:500;}
+
+  /* ---------- fail→fix loop ---------- */
+  .loop{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:30px;
+    font-family:'Space Mono',monospace;font-size:12.5px;}
+  .loop .lstep{border:1px solid var(--line);border-radius:9px;padding:10px 14px;background:var(--ink-2);
+    color:var(--paper);transition:border-color .25s;}
+  .loop .lstep:hover{border-color:var(--amber);}
+  .loop .lstep b{color:var(--amber);font-weight:700;}
+  .loop .lsep{color:var(--amber);font-size:15px;}
+  .loop .lstep.commit{border-color:var(--teal);}
+  .loop .lstep.commit b{color:var(--teal);}
+
+  /* diagnosis buckets */
+  .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+  .bkt{border:1px solid var(--line);border-left:4px solid var(--bc);border-radius:12px;
+    padding:20px 20px;background:var(--ink-2);transition:transform .25s,box-shadow .25s;position:relative;}
+  .bkt:hover{transform:translateY(-4px);box-shadow:0 22px 44px -28px rgba(0,0,0,.85);}
+  .bkt .bl{font-family:'Space Mono',monospace;font-weight:700;font-size:13px;color:var(--bc);
+    display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+  .bkt .bl .tag{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+    background:color-mix(in srgb,var(--bc) 18%, transparent);
+    border:1px solid color-mix(in srgb,var(--bc) 45%, transparent);font-size:13px;}
+  .bkt h4{font-family:'Fraunces';font-size:18px;font-weight:600;margin-bottom:6px;}
+  .bkt p{font-size:14px;color:var(--muted);line-height:1.5;}
+  .bkt .fixln{margin-top:11px;padding-top:10px;border-top:1px solid var(--line-soft);
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--bc);letter-spacing:.04em;}
+  .bkt code{font-family:'Space Mono',monospace;font-size:11.5px;color:var(--paper);
+    background:rgba(244,236,224,.06);padding:1px 5px;border-radius:4px;}
+  .b-a{--bc:var(--sky);} .b-b{--bc:var(--violet);} .b-c{--bc:var(--teal);}
+  .b-d{--bc:var(--amber);} .b-e{--bc:var(--rose);}
+
+  /* case studies */
+  .cstudies{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px;margin-top:30px;}
+  .cstudy{border:1px solid var(--line);border-radius:16px;padding:24px 24px;background:linear-gradient(165deg,var(--ink-2),rgba(19,17,13,.55));
+    position:relative;overflow:hidden;transition:transform .3s,box-shadow .3s;}
+  .cstudy:hover{transform:translateY(-4px);box-shadow:0 26px 50px -30px rgba(0,0,0,.9);}
+  .cstudy .bartop{position:absolute;top:0;left:0;right:0;height:4px;background:var(--bc);}
+  .cstudy .cshead{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap;}
+  .cstudy .csbk{font-family:'Space Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+    padding:4px 10px;border-radius:30px;background:color-mix(in srgb,var(--bc) 18%, transparent);
+    color:var(--bc);border:1px solid color-mix(in srgb,var(--bc) 40%, transparent);text-transform:uppercase;}
+  .cstudy .cscm{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--muted-2);}
+  .cstudy h4{font-family:'Fraunces';font-size:21px;font-weight:600;margin-bottom:8px;}
+  .cstudy .prob{font-size:14.5px;color:var(--muted);line-height:1.55;}
+  .cstudy .fix{margin-top:13px;padding-top:13px;border-top:1px solid var(--line-soft);
+    font-size:14px;color:var(--paper);line-height:1.55;}
+  .cstudy .fix .fl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--bc);display:block;margin-bottom:5px;}
+  .cstudy code{font-family:'Space Mono',monospace;font-size:12px;color:var(--bc);
+    background:color-mix(in srgb,var(--bc) 12%, transparent);padding:1px 5px;border-radius:4px;}
+  .cstudy .stat{margin-top:12px;font-family:'Space Mono',monospace;font-size:11px;
+    display:inline-flex;align-items:center;gap:7px;color:var(--teal);}
+  .cstudy .stat .pz{width:9px;height:9px;border-radius:50%;background:var(--teal);}
+
+  /* pull quote */
+  .pullq{margin-top:34px;border:1.5px solid var(--amber);border-radius:18px;padding:34px 36px;
+    background:linear-gradient(110deg,rgba(232,161,58,.10),rgba(95,182,168,.05));position:relative;}
+  .pullq::before{content:"\201C";position:absolute;top:-6px;left:20px;font-family:'Fraunces';
+    font-size:90px;color:rgba(232,161,58,.28);line-height:1;}
+  .pullq p{font-family:'Fraunces';font-size:clamp(21px,2.7vw,28px);font-weight:400;line-height:1.32;
+    color:var(--paper);font-style:italic;padding-left:18px;}
+  .pullq p b{color:var(--amber);font-weight:500;font-style:normal;}
+
+  /* ---------- yaml ---------- */
+  .yaml{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#0d0c09;
+    box-shadow:0 30px 60px -34px rgba(0,0,0,.9);}
+  .yaml .bar{display:flex;align-items:center;gap:8px;padding:13px 18px;border-bottom:1px solid var(--line-soft);
+    font-family:'Space Mono',monospace;font-size:12.5px;color:var(--muted);}
+  .yaml .bar .d{width:11px;height:11px;border-radius:50%;}
+  .yaml pre{margin:0;padding:24px 26px;overflow-x:auto;font-family:'Space Mono',monospace;
+    font-size:13.5px;line-height:1.85;}
+  .yk{color:var(--amber);} .yv{color:var(--paper);} .ys{color:var(--teal);}
+  .yc{color:var(--muted-2);font-style:normal;} .yt{color:var(--sky);} .yd{color:var(--rose);}
+
+  /* ---------- footer ---------- */
+  footer{padding:56px 0 70px;border-top:1px solid var(--line-soft);}
+  .files{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:24px;}
+  .file{border:1px solid var(--line);border-radius:11px;padding:15px 18px;background:var(--ink-2);
+    font-family:'Space Mono',monospace;font-size:13px;display:flex;align-items:center;gap:11px;
+    transition:border-color .2s;}
+  .file:hover{border-color:var(--amber);}
+  .file .fi{color:var(--amber);}
+  .file .fp{color:var(--paper);}
+  .file small{color:var(--muted-2);display:block;font-family:'Newsreader';font-size:13px;margin-top:2px;}
+  .footnote{margin-top:36px;color:var(--muted-2);font-size:13.5px;font-family:'Space Mono',monospace;
+    letter-spacing:.04em;text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <div class="wrap">
+    <div class="stamp">
+      <div><span>E2E</span>real turns<br>live agent<br>graded</div>
+    </div>
+    <div class="eyebrow">Plus One v2 · Quality Lab</div>
+    <h1 class="fade in">The Eval<br><em>System</em>, mapped.</h1>
+    <p class="sub fade in">How Plus One proves its Slack AI coworker still answers well — by replaying <b>real conversations</b> against the <b>live agent</b> and grading every reply.</p>
+    <div class="runline fade in">
+      <span class="dollar">$</span>
+      <code>cd backend && go run ./cmd/eval<span class="blink"></span></code>
+    </div>
+  </div>
+</header>
+
+<!-- ================= PRODUCT CONTEXT ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <div class="eyebrow">What's being tested</div>
+      <h2>A Slack-native AI coworker.</h2>
+      <p>One shared bot per Slack workspace. A message travels this path and a reply streams back into the thread — the eval system exercises the whole loop, end to end.</p>
+    </div>
+    <div class="pipe-product fade">
+      <div class="pp"><div class="ic">💬</div><h4>Slack</h4><small>A message or @mention lands in a thread.</small><span class="arrow">→</span></div>
+      <div class="pp"><div class="ic">⚙️</div><h4>Go backend</h4><small>Verifies, gates the turn, maps thread → session.</small><span class="arrow">→</span></div>
+      <div class="pp"><div class="ic">🗄️</div><h4>Postgres</h4><small>Sessions, memory, skills, scheduled tasks.</small><span class="arrow">→</span></div>
+      <div class="pp"><div class="ic">🧠</div><h4>CMA</h4><small>Claude Managed Agents — Anthropic's hosted agent runtime.</small><span class="arrow">→</span></div>
+      <div class="pp"><div class="ic">↩️</div><h4>Reply</h4><small>Streamed back into the same Slack thread.</small></div>
+    </div>
+    <div class="compound fade">
+      <b>It compounds over time</b> — shared memory, skills, personal instructions, and scheduled tasks make every workspace's coworker smarter the longer it's used. The eval system is how we keep that quality from quietly drifting.
+    </div>
+  </div>
+</section>
+
+<!-- ================= PIPELINE ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">01 — pipeline</span>
+      <h2>Five moves, one command.</h2>
+      <p>A Go CLI loads cases, runs them against the real agent, grades the replies, and writes a record you can diff against last time.</p>
+    </div>
+    <div class="flow">
+      <div class="step fade"><div class="k">1</div><h4>Load</h4><p>Read YAML cases from <span class="mono">evals/cases/</span>.</p></div>
+      <div class="step fade"><div class="k">2</div><h4>Dispatch</h4><p>Route each case to its type-specific runner.</p></div>
+      <div class="step fade"><div class="k">3</div><h4>Execute</h4><p>Run a real turn against the live CMA API.</p></div>
+      <div class="step fade"><div class="k">4</div><h4>Grade</h4><p>Claude judge (temp 0), deterministic checks, or latency budgets.</p></div>
+      <div class="step fade"><div class="k">5</div><h4>Report</h4><p>PASS / FAIL to stdout + a JSON run record.</p></div>
+    </div>
+    <div class="compound fade" style="margin-top:24px;">
+      <b style="color:var(--amber)">Outputs &amp; flags ·</b>&nbsp; Per-case PASS/FAIL to stdout, plus a JSON record in <span class="mono">evals/runs/&lt;timestamp&gt;.json</span>. Use <code class="mono" style="color:var(--amber)">-compare-to</code> to diff two runs and catch regressions · <code class="mono" style="color:var(--amber)">-case &lt;glob&gt;</code> · <code class="mono" style="color:var(--amber)">-dir</code> · <code class="mono" style="color:var(--amber)">-out</code> · <code class="mono" style="color:var(--amber)">-real-connections</code> · <code class="mono" style="color:var(--amber)">-keep-viktor-mention</code>.
+    </div>
+  </div>
+</section>
+
+<!-- ================= CASE TYPES ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">02 — case types</span>
+      <h2>Two kinds of test.</h2>
+      <p>Every YAML case declares a <span class="mono">type</span>, split by one question: can a deterministic check decide pass/fail, or does it need judgment?</p>
+    </div>
+    <div class="cards">
+      <div class="card c-ct fade">
+        <div class="bartop"></div>
+        <div class="tagrow"><span class="ct">objective</span></div>
+        <h3>Objective</h3>
+        <p>A deterministic yes/no guarantee — <b style="color:var(--paper)">no judge</b>. Inspect memory-store state (did the credential land in the right mount?), match a provider tool result with exact text / JSON, or check the reply with a regex. Pass/fail by assertion.</p>
+        <div class="judge">◇ <b>Deterministic</b> · state / text / regex assertions</div>
+      </div>
+      <div class="card c-traj fade">
+        <div class="bartop"></div>
+        <div class="tagrow"><span class="ct">subjective</span><span class="flag">★ flagship</span></div>
+        <h3>Subjective</h3>
+        <p>Graded by a <b style="color:var(--paper)">Claude judge</b>. The flagship shape replays a real Slack question to a blank Plus One and compares the reply to a gold answer — Viktor's real human reply, or a frozen reference reply in the YAML — plus behavior properties. Also covers connection-backed turns and judged memory invariants.</p>
+        <div class="judge">◆ <b>Judge</b> · gold-or-rubric + properties</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GRADING GATE ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">03 — trajectory grading</span>
+      <h2>Two gates a reply must pass.</h2>
+      <p>The flagship trajectory check grades on two independent layers — <em>did it answer right</em>, and <em>did it behave the way this case expects</em>.</p>
+    </div>
+    <div class="gate">
+      <div class="layer fade">
+        <span class="lbl">Layer 1</span>
+        <h3>Substance</h3>
+        <p>The Claude judge reads the prompt, the agent's reply, the gold reply, and a per-case rubric — then returns pass / fail on whether the answer is actually correct and complete.</p>
+        <div class="pill-row">
+          <span class="pp-pill judged">prompt</span>
+          <span class="pp-pill judged">agent reply</span>
+          <span class="pp-pill judged">gold reply</span>
+          <span class="pp-pill judged">rubric</span>
+        </div>
+      </div>
+      <div class="layer fade">
+        <span class="lbl">Layer 2</span>
+        <h3>Properties · P1–P14</h3>
+        <p>A catalog of good behaviors — P1 sets expectations upfront · P2 shows reasoning · P5 admits limitations · P8 remembers cross-thread context · P13 actionable output. Each case declares which it expects.</p>
+        <div class="pill-row">
+          <span class="pp-pill det">P3 formatting · regex</span>
+          <span class="pp-pill det">P14 ack pattern · regex</span>
+          <span class="pp-pill judged">P1·P2·P5·P8·P13… · 1 batched judge call</span>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--teal)"></i>Deterministic regex, in-process</span>
+          <span><i style="background:var(--violet)"></i>Judged — one batched call / case</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict fade">
+      <div class="vbox amp">
+        <div class="vk">Layer 1</div>
+        <h4>Substance passes</h4>
+      </div>
+      <div class="vbox" style="flex:0 0 auto;display:grid;place-items:center;"><span class="op">AND</span></div>
+      <div class="vbox amp">
+        <div class="vk">Layer 2</div>
+        <h4>≥ 80% of expected<br>properties pass</h4>
+      </div>
+      <div class="vresult">
+        <div class="vk">Overall verdict</div>
+        <h4>PASS ✓</h4>
+        <div class="thr" style="margin-top:6px;font-size:12px;">property_pass_threshold = 0.8</div>
+      </div>
+    </div>
+    <p style="color:var(--muted-2);font-size:13.5px;margin-top:14px;font-family:'Space Mono',monospace;">
+      ↑ Batching matters: the judged properties run in <b style="color:var(--paper)">one</b> Claude call per case — cost scales with cases, not cases × properties.
+    </p>
+  </div>
+</section>
+
+<!-- ================= DESIGN DECISIONS ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">04 — clever by design</span>
+      <h2>Decisions worth stealing.</h2>
+      <p>Small choices that make the eval corpus fair, safe, and reviewable.</p>
+    </div>
+    <div class="deco">
+      <div class="dcard fade">
+        <span class="ic">⚖️</span>
+        <h4>Property-fairness audit</h4>
+        <p>Most cases had a copy-pasted P1/P2/P5/P13 template never checked against their gold reply — so cases failed on behaviors the gold answer doesn't even exhibit (<code>b18-add-stew</code>'s gold reply is just <em>"Added to the stew 🍲"</em>). Fix: P5 gained an N/A escape clause for straightforward tasks, and five cases had unfair properties pruned.</p>
+      </div>
+      <div class="dcard fade">
+        <span class="ic">🛡️</span>
+        <h4>Safe seeding</h4>
+        <p>Cross-thread cases seed synthetic Slack history into Postgres under a <code>T-EVALSEED-</code> team-ID prefix. Real Slack team IDs never contain hyphens, so cleanup can <em>never</em> delete real data. Seeded cases SKIP cleanly when no DB is running.</p>
+      </div>
+      <div class="dcard fade">
+        <span class="ic">🧊</span>
+        <h4>Frozen gold</h4>
+        <p>Reference replies are committed in the YAML at authoring time — reviewable right there in the PR diff, and stable across every future run.</p>
+      </div>
+      <div class="dcard fade">
+        <span class="ic">📸</span>
+        <h4>Eval capture from Slack</h4>
+        <p>An internal-only capability (gated by <code>EVAL_CAPTURE_ALLOWED_TEAM_IDS</code>) where Plus One itself turns a good Slack thread into a trajectory YAML and opens a PR to <code>evals/cases/</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CAPTURE PIPELINE ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">05 — capture pipeline</span>
+      <h2>From Slack thread to eval case.</h2>
+      <p>The corpus grows from real work. Inside allowlisted workspaces, Plus One can turn a good thread into a trajectory case and open the PR itself — following a recipe checked into the repo, never improvising.</p>
+    </div>
+    <div class="tl">
+      <div class="tnode fade">
+        <div class="tk">1</div>
+        <div class="tbody">
+          <h4>Gate <span class="tt">handler</span></h4>
+          <p>A turn arrives. The handler checks the workspace against <code>EVAL_CAPTURE_ALLOWED_TEAM_IDS</code> — an internal-only allowlist, because the eval corpus lives in Every's repo. Slack-app actors (bots, scheduled tasks) are blocked outright; only a real human can capture.</p>
+          <p style="font-size:13px;color:var(--muted-2);font-family:'Space Mono',monospace;margin-top:9px;">backend/internal/handler/turn.go:320 · backend/internal/config/config.go</p>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">2</div>
+        <div class="tbody">
+          <h4>Inject <span class="tt">preamble only</span></h4>
+          <p>For allowed teams only, an <code>evalCaptureInstruction</code> block is appended to the <span class="b-paper">user-message preamble</span> — never the shared system prompt. A test in <code>agentspec_test.go</code> asserts it can't leak there.</p>
+          <p style="font-size:13px;color:var(--muted-2);font-family:'Space Mono',monospace;margin-top:9px;">backend/internal/runtime/context.go:147</p>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">3</div>
+        <div class="tbody">
+          <h4>Trigger <span class="tt">read the recipe</span></h4>
+          <p>A human says the magic words. Before doing anything, Plus One pulls the official recipe from the repo via GitHub MCP and follows it exactly.</p>
+          <div class="vig slack">
+            <div class="av usr">V</div>
+            <div><span class="nm">Viktor</span><div class="msg">@Plus One capture this thread as an eval case.</div></div>
+          </div>
+          <p style="font-size:13px;color:var(--muted-2);font-family:'Space Mono',monospace;margin-top:11px;">reads docs/evals/capturing-eval-cases-from-slack.md</p>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">4</div>
+        <div class="tbody">
+          <h4>Pick the gold <span class="tt">decision</span></h4>
+          <p>Plus One finds the original request and the strongest reply. If a human expert answered well → <span class="b-teal">viktor_reply</span>, verbatim, with <code>request_url</code> + <code>viktor_reply_url</code> permalinks for audit.</p>
+          <p>If there's no human gold — say Plus One itself fell short — it writes the ideal answer as <span class="b-violet">reference_reply</span> with <code>gold_source: generated</code>, flagged <em>"AI-authored — review before merge."</em></p>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">5</div>
+        <div class="tbody">
+          <h4>Build the YAML <span class="tt">golden rule</span></h4>
+          <p>Kebab-case name · prompt re-pointed from @Viktor to @Plus One · <span class="b-paper">one</span> focused <code>substance_rubric</code> assertion · only the <code>expected_properties</code> the task actually warrants.</p>
+          <p><b class="b-rose">Golden rule:</b> never demand a property the gold reply doesn't exhibit. Patterns: deliverable → P1+P13 · research → P1,P2,P5,P13 · multi-step → +P11 · write action → +P12.</p>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">6</div>
+        <div class="tbody">
+          <h4>Open a PR <span class="tt">never merges</span></h4>
+          <p>A branch <code>eval/capture-&lt;name&gt;</code> off <code>plus-one-v2</code>, one file, PR body carrying the exact CE-review checkbox line. Plus One does <span class="b-paper">not</span> merge — it replies in the thread with the link. If GitHub is unavailable, it posts ready-to-commit YAML in the thread instead.</p>
+          <div class="vig pr">
+            <div class="prbar"><span class="gh"></span><span>branch <span class="br">eval/capture-summarize-launch</span></span></div>
+            <pre><span class="meta">evals/cases/summarize-launch.yaml</span> | 18 <span class="add">++++++++++++++++++</span>
+1 file changed, 18 insertions(+)</pre>
+          </div>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">7</div>
+        <div class="tbody">
+          <h4>Log to corpus <span class="tt">token stays server-side</span></h4>
+          <p>Plus One appends an entry to the internal "Plus One Eval Corpus" Proof doc — but <span class="b-paper">never holds the token</span>. The Proof adapter injects it server-side from <code>EVAL_CORPUS_PROOF_DOC_URL</code> for allowlisted workspaces only; the token never enters model context, Slack, or memory.</p>
+          <p style="font-size:13px;color:var(--muted-2);font-family:'Space Mono',monospace;margin-top:9px;">recent fix · PR #388</p>
+        </div>
+      </div>
+      <div class="tnode fade">
+        <div class="tk">8</div>
+        <div class="tbody">
+          <h4>Human merges → live <span class="tt">in the sweep</span></h4>
+          <p>Once a human merges, <code>go run ./cmd/eval -case &lt;name&gt;</code> runs it, and it rides along in the regular sweep against a blank Plus One forever after.</p>
+        </div>
+      </div>
+    </div>
+    <div class="sidenote fade">
+      <span class="sk">Where the original corpus came from</span>
+      <p>The seed set (<b>b1–b18, s1–s15, f1–f5</b>) came from 26 verbatim Viktor replies, triaged out of 33 candidates from Every's Slack history (commit <code>19a7674</code>, May 28 2026). At runtime, prompts are re-pointed <b>@Viktor → @Plus One</b> — the eval measures <em>doing the task</em>, not impersonating a person. The <code>-keep-viktor-mention</code> flag replays verbatim for debugging.</p>
+      <p><b>Safety:</b> captured thread text is treated as untrusted source material — never as instructions the agent should obey.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAIL → FIX LOOP ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">06 — when an eval fails</span>
+      <h2>The fail → fix loop, as practiced.</h2>
+      <p>A red case is a diagnosis, not a verdict. Read the judge's full reasoning, decide <em>where</em> the failure belongs, fix it there, then re-run with <code class="mono" style="color:var(--amber)">-compare-to</code> to prove the delta.</p>
+    </div>
+    <div class="loop fade">
+      <span class="lstep"><b>run</b> the case</span><span class="lsep">→</span>
+      <span class="lstep">read judge <b>reasoning</b></span><span class="lsep">→</span>
+      <span class="lstep"><b>diagnose</b> root cause</span><span class="lsep">→</span>
+      <span class="lstep">fix where it <b>belongs</b></span><span class="lsep">→</span>
+      <span class="lstep">re-run <b>-compare-to</b></span><span class="lsep">→</span>
+      <span class="lstep commit"><b>commit</b> run record</span>
+    </div>
+
+    <div class="buckets">
+      <div class="bkt b-a fade">
+        <div class="bl"><span class="tag">A</span> Harness gap</div>
+        <h4>The eval runs blind</h4>
+        <p>The capability ships in production, but the harness can't exercise it. The agent never had a fair shot.</p>
+        <div class="fixln">FIX → the harness</div>
+      </div>
+      <div class="bkt b-b fade">
+        <div class="bl"><span class="tag">B</span> Unfair case</div>
+        <h4>The test is wrong</h4>
+        <p>The case demands a property or rubric the gold reply itself doesn't exhibit.</p>
+        <div class="fixln">FIX → the YAML (+ comment)</div>
+      </div>
+      <div class="bkt b-c fade">
+        <div class="bl"><span class="tag">C</span> Agent behavior</div>
+        <h4>The agent is wrong</h4>
+        <p>It genuinely does the wrong thing. Fix the system prompt or handler — and register a case to lock it in.</p>
+        <div class="fixln">FIX → <code>agentspec.go</code> / handler</div>
+      </div>
+      <div class="bkt b-d fade">
+        <div class="bl"><span class="tag">D</span> Missing capability</div>
+        <h4>The feature doesn't exist</h4>
+        <p>Not a bug — a gap. File product work and document the coverage hole.</p>
+        <div class="fixln">FIX → docs/evals/improving-eval-coverage.md</div>
+      </div>
+      <div class="bkt b-e fade">
+        <div class="bl"><span class="tag">E</span> Judge config</div>
+        <h4>The grader is flaky</h4>
+        <p>Grading itself is mis-tuned — turn timeouts, missing N/A clauses, an over-strict rubric.</p>
+        <div class="fixln">FIX → judge / harness config</div>
+      </div>
+    </div>
+
+    <div class="cstudies">
+      <div class="cstudy b-a fade">
+        <div class="bartop"></div>
+        <div class="cshead"><span class="csbk">Bucket A</span><span class="cscm">cf7e549 → 1c60f30 → ad99d07</span></div>
+        <h4>Cross-thread recall</h4>
+        <p class="prob">"Summarize what we did today" cases were unmeasurable — the harness ran blank sessions with no Slack history, even though production already had the recall code.</p>
+        <div class="fix">
+          <span class="fl">Fix</span>
+          Extracted <code>recall.BuildCrossThreadSummary</code> so eval and production share it; added <code>seed_archive:</code> to the schema (synthetic threads under <code>T-EVALSEED-</code> ids); wired <code>get_recent_activity</code> to serve from seeded data.
+        </div>
+        <div class="stat"><span class="pz"></span>Cases now PASS · skip cleanly without a DB</div>
+      </div>
+      <div class="cstudy b-b fade">
+        <div class="bartop"></div>
+        <div class="cshead"><span class="csbk">Bucket B + E</span><span class="cscm">this branch · 3262192 / 4e5750d</span></div>
+        <h4>Property fairness</h4>
+        <p class="prob">A copy-pasted P1/P2/P5/P13 template made cases fail on behaviors their gold never showed — <code>b18</code>'s gold is just <em>"Added to the stew 🍲"</em>.</p>
+        <div class="fix">
+          <span class="fl">Fix</span>
+          Added an <b style="color:var(--paper)">N/A escape clause</b> to P5; pruned five cases per-case with explanatory comments so a case is never failed on a behavior its gold reply never showed.
+        </div>
+        <div class="stat"><span class="pz"></span>Fair cases · stable verdicts</div>
+      </div>
+      <div class="cstudy b-c fade">
+        <div class="bartop"></div>
+        <div class="cshead"><span class="csbk">Bucket C</span><span class="cscm">8742726 · 84039bb · 9e5d28f</span></div>
+        <h4>Scaffolding leaking to Slack</h4>
+        <p class="prob">Plus One emitted interactive planning preambles straight into its Slack replies — internal scaffolding the user was never meant to see.</p>
+        <div class="fix">
+          <span class="fl">Fix landed in the agent</span>
+          System-prompt rewrite + output-boundary enforcement in the handler, then a new trajectory case <code>no-interactive-planning-preamble</code> to lock the behavior in.
+        </div>
+        <div class="stat"><span class="pz"></span>Behavior fixed · locked by a case</div>
+      </div>
+    </div>
+
+    <div class="pullq fade">
+      <p>Fix the failure <b>where it belongs</b> — sometimes the agent is wrong, sometimes the test is wrong, sometimes the harness is blind — and every fix leaves a <b>committed run record</b> proving the delta.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= YAML ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head fade">
+      <span class="num">07 — a case, in full</span>
+      <h2>What a trajectory case looks like.</h2>
+      <p>Human-readable, version-controlled, reviewable in a PR. This one seeds two threads, then asks for a summary.</p>
+    </div>
+    <div class="yaml fade">
+      <div class="bar">
+        <span class="d" style="background:#e0707f"></span><span class="d" style="background:#e8a13a"></span><span class="d" style="background:#5fb6a8"></span>
+        <span style="margin-left:8px;">evals/cases/summarize-today.yaml</span>
+      </div>
+<pre><span class="yk">name</span>: <span class="yv">summarize-today</span>
+<span class="yk">type</span>: <span class="yt">trajectory</span>
+<span class="yk">trajectory</span>:
+  <span class="yk">gold_source</span>: <span class="yv">generated</span>
+  <span class="yk">seed_archive</span>:
+    <span class="yk">channel_kind</span>: <span class="yv">im</span>
+    <span class="yk">threads</span>:
+      - <span class="yk">messages</span>:
+          - <span class="yk">role</span>: <span class="yv">user</span>
+            <span class="yk">text</span>: <span class="ys">"Let's nail down the Q3 launch plan today."</span>
+          - <span class="yk">role</span>: <span class="yv">bot</span>
+            <span class="yk">text</span>: <span class="ys">"Drafted the Q3 launch plan: ..."</span>
+  <span class="yk">prompt</span>: <span class="ys">"@Plus One summarize what we did today."</span>
+  <span class="yk">reference_reply</span>: <span class="ys">"Here's what we got done today: ..."</span>
+  <span class="yk">substance_rubric</span>: <span class="ys">"To pass, recall and summarize both threads."</span>
+  <span class="yk">expected_properties</span>: [<span class="yd">P8</span>, <span class="yd">P4</span>]   <span class="yc"># cross-thread memory + clarity</span>
+</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FOOTER ================= -->
+<footer>
+  <div class="wrap">
+    <div class="sec-head fade" style="margin-bottom:8px;">
+      <div class="eyebrow">Where it lives</div>
+      <h2 style="font-size:34px;">Start reading here.</h2>
+    </div>
+    <div class="files fade">
+      <div class="file"><span class="fi">▸</span><div><span class="fp">backend/cmd/eval/main.go</span><small>CLI entry · loads, dispatches, reports</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">backend/cmd/eval/trajectory.go</span><small>flagship runner + two-layer grading</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">evals/README.md</span><small>case format + how to author</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">evals/cases/</span><small>the trajectory + behavioral corpus</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">evals/runs/</span><small>committed run records · the regression baselines</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">backend/internal/runtime/context.go</span><small>per-turn preamble · eval-capture injection</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">docs/evals/capturing-eval-cases-from-slack.md</span><small>the in-Slack capture recipe Plus One follows</small></div></div>
+      <div class="file"><span class="fi">▸</span><div><span class="fp">docs/evals/improving-eval-coverage.md</span><small>diagnosis buckets + coverage-gap playbook</small></div></div>
+    </div>
+    <p class="footnote">Plus One v2 · Quality Lab — single-file explainer · two suites: <span style="color:var(--amber)">objective + subjective</span></p>
+  </div>
+</footer>
+
+<script>
+  // staggered scroll reveals
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach((e,i)=>{
+      if(e.isIntersecting){
+        const sibs = [...e.target.parentElement.querySelectorAll('.fade')];
+        const idx = sibs.indexOf(e.target);
+        e.target.style.transitionDelay = (Math.max(0,idx)*70)+'ms';
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:.12, rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.fade:not(.in)').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
